@@ -39,3 +39,12 @@
 
 # debug information files
 *.dwo
+
+# nes files
+*.nes
+
+# debug files
+*.txt
+
+# other
+a
