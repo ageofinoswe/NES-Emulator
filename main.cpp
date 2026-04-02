@@ -2,6 +2,6 @@
 
 int main()
 {
-    Cpu cpu();
+    Cpu cpu("official_only.nes");
     return 0;
 }

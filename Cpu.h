@@ -47,8 +47,8 @@ class Cpu
         // instruction set that contains all opcodes for all instructions
         Instruction instructionSet[256];
 
-        // address to be operated on
-        uint16_t effectiveAddress;
+        // operand fetched from memory using adressing mode
+        uint16_t operand;
   
         // initializes all instructions and their opcode properties
         void createInstructionSet();
@@ -60,13 +60,13 @@ class Cpu
         void loadCartridge(string fileName);
         
         // calculates effective address based on address mode
-        void setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modifier, uint16_t operands);
+        void setOperand(AddressingModes mode, AddressingModeModifiers modifier, uint16_t address);
         
         // fetch, decode, execute cycle
         void cycle();
-        uint8_t fetch() const;
+        uint8_t fetch();
         const Instruction& decode(uint8_t opcode);
-        void execute(const Instruction &instruction);
+        void execute(const Instruction& instruction);
         
         // registers, A, X, Y, PC, S, P(NV1B DIZC)
         // (A) accumulator

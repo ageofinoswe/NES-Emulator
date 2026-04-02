@@ -313,7 +313,7 @@ void Cpu::loadCartridge(string fileName)
     file.close();
 }
 
-void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modifier, uint16_t operands)
+void Cpu::setOperand(AddressingModes mode, AddressingModeModifiers modifier, uint16_t address)
 {
     switch (mode)
     {
@@ -348,19 +348,19 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
             {
                 case None:
                 {
-                    effectiveAddress = memory.read(operands);
+                    operand = memory.read(address);
                 }
                 break;
 
                 case XIndexed:
                 {
-                    effectiveAddress = memory.read((operands + X) % 256);
+                    operand = memory.read((address + X) % 256);
                 }
                 break;
 
                 case YIndexed:
                 {
-                    effectiveAddress = memory.read((operands + Y) % 256);
+                    operand = memory.read((address + Y) % 256);
                 }
                 break;
 
@@ -374,19 +374,19 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
             {
                 case None:
                 {
-                    effectiveAddress = memory.read(operands);
+                    operand = memory.read(address);
                 }
                 break;
 
                 case XIndexed:
                 {
-                    effectiveAddress = memory.read(operands + X); 
+                    operand = memory.read(address + X); 
                 }
                 break;
 
                 case YIndexed:
                 {
-                    effectiveAddress = memory.read(operands + Y);
+                    operand = memory.read(address + Y);
                 }
                 break;
 
@@ -400,7 +400,7 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
             {
                 case None:
                 {
-                    effectiveAddress = memory.read(PC + static_cast<int16_t>(operands));
+                    operand = memory.read(PC + address);
                 }
                 break;
 
@@ -416,7 +416,7 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
             {
                 case None:
                 {
-                    effectiveAddress = memory.read(memory.read(operands));
+                    operand = memory.read(memory.read(address));
                 }
                 break;
 
@@ -435,16 +435,16 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
 
                 case XIndexed:
                 {
-                    const uint16_t k1 = (operands + X) % 256;
-                    const uint16_t k2 = (operands + X + 1) % 256;
-                    effectiveAddress = memory.read(memory.read(k1) + memory.read(k2) << 8);
+                    const uint16_t k1 = (address + X) % 256;
+                    const uint16_t k2 = (address + X + 1) % 256;
+                    operand = memory.read(memory.read(k1) + (memory.read(k2) << 8));
                 }
                 break;
 
                 case YIndexed:
                 {
-                    const uint16_t k1 = (operands + 1) % 256;
-                    effectiveAddress = memory.read(memory.read(operands) + memory.read(k1) << 8 + Y);
+                    const uint16_t k1 = (address + 1) % 256;
+                    operand = memory.read(memory.read(address) + (memory.read(k1) << 8) + Y);
                 }
                 break;
 
@@ -474,29 +474,43 @@ void Cpu::setEffectiveAddress(AddressingModes mode, AddressingModeModifiers modi
 void Cpu::cycle()
 {
     uint8_t opCode = fetch();
-    Instruction instruction = decode(opCode);
+    const Instruction& instruction = decode(opCode);
     execute(instruction);
 }
 
-uint8_t Cpu::fetch() const
+uint8_t Cpu::fetch()
 {
-    return memory.read(PC);
+    return memory.read(PC++);
 }
 
 const Instruction& Cpu::decode(uint8_t opCode)
 {
-    return instructionSet[opCode];
+    const Instruction& instruction = instructionSet[opCode];
+    uint16_t address = 0;
+    uint8_t numBytes = instruction.numBytes;
+    for(int bytes = 1 ; bytes < numBytes ; bytes++)
+    {
+        address |= memory.read(PC++) << (8 * (bytes - 1));
+    }
+    setOperand(instruction.mode, instruction.modifier, address);
+    return instruction;
 }
 
-void Cpu::execute(const Instruction &instruction)
+void Cpu::execute(const Instruction& instruction)
 {
-    // execute...
+    (this->*(instruction.instruction))();
 }
 
 
 void Cpu::ADC()
 {
-    
+    CLC();
+    int temp = A + operand + C;
+    C = (temp > 0xFF);
+    Z = (temp == 0);
+    V = (temp ^ A) & (temp ^ operand) & 0x80;
+    N = (temp >> 7) & 0x1;
+    A = (temp & 0xFF);
 }
 void Cpu::AND()
 {
@@ -548,7 +562,7 @@ void Cpu::BVS()
 }
 void Cpu::CLC()
 {
-
+    C = 0;
 }
 void Cpu::CLD()
 {
