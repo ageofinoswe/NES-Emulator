@@ -1,9 +1,13 @@
-#include "CpuMemory.h"
+#ifndef CPU_H_
+#define CPU_H_
+
+#include <filesystem>
+#include "Bus.h"
 
 // forward declarations for structs
 class Cpu;
 
-// addressing modes
+// ENUMS
 enum AddressingModes
 {
     NONE,
@@ -21,7 +25,7 @@ enum AddressingModes
     INDEXED_INDIRECT_X,
     INDIRECT_INDEXED_Y
 };
-// opcodes
+
 enum OpCodes
 {
     // ADC
@@ -233,8 +237,8 @@ enum OpCodes
     // TYA
     TYA_IMPL = 0x98,
 };
-// status register is comprised of 8 1-bit flags
-enum PFlags
+
+enum PFlags // status register, P
 {
     N,      // (N) negative flag
     V,      // (V) overflow flag
@@ -246,91 +250,102 @@ enum PFlags
     C,      // (C) carry flag
 };
 
+// STRUCTS
 struct OpCode
 {
+    const char* name = nullptr;
+    uint8_t opCodeValue = 0;
     uint8_t numBytes = 0;
     uint8_t minCycles = 0;
     AddressingModes mode = NONE;
 };
 
-// struct for instruction opcodes and their properties
 struct Instruction
 {
     OpCode opCode;
-    void (Cpu::*cycles[8])() = {nullptr};
+    void (Cpu::*cycles)() = nullptr;
     void (Cpu::*execute)() = nullptr;
 };
 
+// CLASS
 class Cpu
 {
     public:
         // constructors
-        Cpu();
-        Cpu(string fileName);
+        Cpu(Bus& bus);
+        Cpu(Bus& bus, string fileName);
+
+        // address/data bus
+        Bus& bus;
+
+        // set cpu state
+        void setTestCpuState(string reg, uint16_t value);
+        uint8_t readTestMem(uint16_t address);
+        void writeTestMem(uint16_t address, uint8_t value);
+        uint16_t getRegisterValue(string reg);
+
+        // runs 1 cycle
+        void runCycle();
+
+        // runs all cycles at once
+        void autoRunCycles();
+
+        // write cpu state to file
+        void printState();
 
     private:
-        // cpu memory
-        CpuMemory memory;
-        
-        // instruction set that contains all opcodes for all instructions
+        // instructions and corresponding properties
         Instruction instructionSet[256];
-
-        // operand fetched from memory using adressing mode
-        uint16_t address;
-        uint8_t data;
-        uint16_t fetchByte();
-        void fetchLowByte();
-        void fetchHighByte();
-        void runCycle();
         Instruction currentInstruction;
-        uint8_t instructionStep;
-        uint8_t cyclesRemaining;
-        void dummyRead();
-        // initializes all instructions and their opcode properties
+        uint8_t cyclesRequired;
+        uint8_t currentCycle;
         void createInstructionSet();
 
-        // initializer for power up state - sets all registers and flags
-        void powerUpStateInitializer();
+        //  
+        uint8_t lowByte;
+        uint8_t highByte;
+        uint16_t address;
+        uint8_t data;
+        bool readMode;
+        bool writeMode;
+        uint8_t read(uint16_t address);
+        void write(uint16_t address, uint8_t value);
+        void fetchOpCode();
+        void fetchLowByte();
+        void fetchHighByte();
+        void setReadMode(bool isOn);
+        void setWriteMode(bool isOn);
         
         // loads a cartridge into memory
         void loadCartridge(string fileName);
         
-        // fetch, decode, execute cycle
-        void cycle();
-        uint8_t fetch();
-        const Instruction& decode(uint8_t opcode);
-        void execute(const Instruction& instruction);
+        // initializer for power up state - sets all registers and flags
+        void powerUpStateInitializer();
         
-        // registers, A, X, Y, PC, S, P(NV1B DIZC)
-        // (A) accumulator
-        uint8_t A;
-        // (X, Y) indexes
-        uint8_t X;
-        uint8_t Y;
-        // (PC) program counter
-        uint16_t PC;
-        // (S) stack pointer
-        uint8_t S;
-        // (P) status register = NV1B DIZC
-        uint8_t P;
+        // registers
+        uint8_t A;      // accumulator
+        uint8_t X;      // X index
+        uint8_t Y;      // Y index
+        uint16_t PC;    // program counter
+        uint8_t S;      // stack pointer
+        uint8_t P;      // status register (NV1B DIZC)
         void setPFlag(PFlags flag, bool val);
         bool getPFlag(PFlags flag);
 
         // addressing modes
-        void read();
-        
-        void IMPL();
-        void IMM();
-        void ZP();
-        void ZPX();
-        void ZPY();
-        void ABS();
-        void ABSX();
-        void ABSY();
+        void IMP(); //
+        void IMM(); //
+        void ACC(); //
         void REL();
-        void IND();
-        void IIX();
-        void IIY();
+        void ZP();  //
+        void ZPX(); //
+        void ZPY(); //
+        void ABS(); //
+        void ABX(); //
+        void ABY(); //
+        void IND(); //
+        void IIX(); //
+        void IIY(); //
 
         // instructions, 56 total
         void ADC();
@@ -390,3 +405,5 @@ class Cpu
         void TXS();
         void TYA();
 };
+
+#endif
