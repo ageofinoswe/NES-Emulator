@@ -1,5 +1,31 @@
 #include "Bus.h"
 
+// namespaces
+namespace
+{
+    void writeHeaderToFile(std::ofstream&  file, string header, string range)
+    {
+        file << "************************************************\n";
+        file << header << std::endl;
+        file << range << std::endl;
+        file << "************************************************\n";
+        file << format("{:<20}{}\n", "Address", "Memory");
+        file << format("{:<20}{}\n", "-------", "-------");
+    }
+    
+    void writeMemoryToFile(std::ofstream& file, Bus& bus, int start, int end)
+    {
+        for(int i = start ; i <= end ; i++)
+        {
+            file << format("{:<20}", format("({:05d}) {:#06x}", i, i))
+                 << std::hex
+                 << static_cast<int>(bus.cpuRead(i))
+                 << "\n"
+                 << std::dec;
+        }
+    }
+}
+
 // public
 Bus::Bus()
     : Bus(true)
@@ -134,30 +160,4 @@ void Bus::memoryMapDump(string path = "../debug/memoryMap.txt")
 bool Bus::validateAddressRange(uint16_t address) const
 {
     return (address >= 0x0000 && address < MEMORY_SIZE);
-}
-
-// namespaces
-namespace
-{
-    void writeHeaderToFile(std::ofstream&  file, string header, string range)
-    {
-        file << "************************************************\n";
-        file << header << std::endl;
-        file << range << std::endl;
-        file << "************************************************\n";
-        file << format("{:<20}{}\n", "Address", "Memory");
-        file << format("{:<20}{}\n", "-------", "-------");
-    }
-    
-    void writeMemoryToFile(std::ofstream& file, Bus& bus, int start, int end)
-    {
-        for(int i = start ; i <= end ; i++)
-        {
-            file << format("{:<20}", format("({:05d}) {:#06x}", i, i))
-                 << std::hex
-                 << static_cast<int>(bus.cpuRead(i))
-                 << "\n"
-                 << std::dec;
-        }
-    }
 }
