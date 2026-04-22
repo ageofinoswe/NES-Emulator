@@ -40,15 +40,8 @@
 # debug information files
 *.dwo
 
-# nes files
-*.nes
-
-# debug files
-*.txt
-
 # other
-a
-RandomBytes.cpp
-random
+.vscode
+/src/cpu
 /tests
-/includes
+/debug
