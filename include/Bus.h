@@ -3,7 +3,6 @@
 
 #include <cstdint>
 #include <fstream>
-#include <string>
 #include <format>
 #include <iostream>
 
@@ -28,6 +27,7 @@ class Bus
 {
     public:
         // constructors
+        Bus();
         Bus(bool memoryMapOn);
 
         // size of the memory (0xFFFF + 0x1)
@@ -37,8 +37,8 @@ class Bus
         uint8_t cpuRead(uint16_t address);
         void cpuWrite(uint16_t address, uint8_t value);
         
-        // dumps the contents of the memory map
-        void memoryMapDump();
+        // dumps the contents of the memory map to a .txt file
+        void memoryMapDump(string path);
         
     private:
         // memory allocation stored in an array
@@ -47,7 +47,7 @@ class Bus
         // determines if an address is valid within memory address space
         bool validateAddressRange(uint16_t address) const;
 
-        // creates mirror if on
+        // creates memory map, if true
         bool memoryMapOn;
 };
 

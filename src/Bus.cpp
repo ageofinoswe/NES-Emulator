@@ -1,31 +1,13 @@
 #include "Bus.h"
 
-// namespaces
-namespace
+// public
+Bus::Bus()
+    : Bus(true)
 {
-    void writeHeaderToFile(std::ofstream&  file, string header, string range)
-    {
-        file << "************************************************\n";
-        file << header << std::endl;
-        file << range << std::endl;
-        file << "************************************************\n";
-        file << format("{:<20}{}\n", "Address", "Memory");
-        file << format("{:<20}{}\n", "-------", "-------");
-    }
-    
-    void writeMemoryToFile(std::ofstream& file, Bus& bus, int start, int end)
-    {
-        for(int i = start ; i <= end ; i++)
-        {
-            file << format("{:<20}", format("({:05d}) {:#06x}", i, i)) << std::hex << static_cast<int>(bus.cpuRead(i)) << "\n" << std::dec;
-        }
-    }
 }
 
-// public
-// -----------------------------------------------------------------
-Bus::Bus(bool memoryMapOn = true)
-: memory{}
+Bus::Bus(bool memoryMapOn)
+    : memory{}
 {
     this->memoryMapOn = memoryMapOn;
 }
@@ -59,7 +41,7 @@ uint8_t Bus::cpuRead(uint16_t address)
     }
     else
     {
-        std::cout << format("Error readiong at address: {}\n", address);
+        std::cout << format("Error reading memory at address: {}\n", address);
         return -1;
     }
 }
@@ -93,14 +75,14 @@ void Bus::cpuWrite(uint16_t address, uint8_t value)
     }
     else
     {
-        std::cout << format("Error writing value: {} @ address: {}\n", value, address);
+        std::cout << format("Error writing to memory: {} @ address: {}\n", value, address);
         memory[address] = -1;
     }
 }
 
-void Bus::memoryMapDump()
+void Bus::memoryMapDump(string path = "../debug/memoryMap.txt")
 {
-    std::ofstream file("../debug/memoryMap.txt");
+    std::ofstream file(path);
     
     // 0x0000 - 0x07FF --> 2 KB internal ram
     writeHeaderToFile(file, "2KB INTERNAL RAM", "0x0000 - 0x07FF");
@@ -149,8 +131,33 @@ void Bus::memoryMapDump()
 }
 
 // private
-// -----------------------------------------------------------------
 bool Bus::validateAddressRange(uint16_t address) const
 {
     return (address >= 0x0000 && address < MEMORY_SIZE);
+}
+
+// namespaces
+namespace
+{
+    void writeHeaderToFile(std::ofstream&  file, string header, string range)
+    {
+        file << "************************************************\n";
+        file << header << std::endl;
+        file << range << std::endl;
+        file << "************************************************\n";
+        file << format("{:<20}{}\n", "Address", "Memory");
+        file << format("{:<20}{}\n", "-------", "-------");
+    }
+    
+    void writeMemoryToFile(std::ofstream& file, Bus& bus, int start, int end)
+    {
+        for(int i = start ; i <= end ; i++)
+        {
+            file << format("{:<20}", format("({:05d}) {:#06x}", i, i))
+                 << std::hex
+                 << static_cast<int>(bus.cpuRead(i))
+                 << "\n"
+                 << std::dec;
+        }
+    }
 }

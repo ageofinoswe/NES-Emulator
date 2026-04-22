@@ -1,111 +1,19 @@
 #include "Cpu.h"
 
-const bool DEBUG_MODE = true; 
-
 // public
 Cpu::Cpu(Bus& bus)
-    :   bus{bus}, cyclesRequired{0}, currentCycle{0}, lowByte{0}, highByte{0}, readMode{true}, writeMode{!readMode},
-        A{0}, X{0}, Y{0}, PC{0xFFFC}, S{0xFD}, P{4}
+        : Cpu(bus, "")
 {
-    if(DEBUG_MODE)
-    {   
-        if(std::filesystem::exists("../debug/cpuState.txt"))
-        {
-            std::filesystem::remove("../debug/cpuState.txt");
-        }
-    }
+}
+
+Cpu::Cpu(Bus& bus, string cartridgePath)
+    :   bus{bus}, cyclesRequired{0}, currentCycle{0},
+        lowByte{0}, highByte{0}, address{0}, data{0},
+        readMode{true}, writeMode{!readMode},
+        A{0}, X{0}, Y{0}, PC{0xFFFC}, S{0xFD}, P{36}
+{
     createInstructionSet();
-}
-
-Cpu::Cpu(Bus& bus, string fileName)
-    :   bus{bus}, cyclesRequired{0}, currentCycle{0}, lowByte{0}, highByte{0}, readMode{true}, writeMode{!readMode},
-        A{0}, X{0}, Y{0}, PC{0xFFFC}, S{0xFD}, P{4}
-{
-    if(DEBUG_MODE)
-    {   
-        if(std::filesystem::exists("../debug/cpuState.txt"))
-        {
-            std::filesystem::remove("../debug/cpuState.txt");
-        }
-    }
-    createInstructionSet();
-    loadCartridge(fileName);
-}
-
-uint8_t Cpu::readTestMem(uint16_t address)
-{
-    return read(address);
-}
-
-void Cpu::writeTestMem(uint16_t address, uint8_t value)
-{
-    write(address, value);
-}
-
-uint16_t Cpu::getRegisterValue(string reg)
-{
-    if(reg.compare("A") == 0)
-    {
-        return A;
-    }
-    else if(reg.compare("X") == 0)
-    {
-        return X;
-    }
-    else if(reg.compare("Y") == 0)
-    {
-        return Y;
-    }
-    else if(reg.compare("PC") == 0)
-    {
-        return PC;
-    }
-    else if(reg.compare("S") == 0)
-    {
-        return S;
-    }
-    else if(reg.compare("P") == 0)
-    {
-        return P;
-    }
-    else
-    {
-        return -1;
-        std::cout << "Invalid register access!\n";
-    }   
-}
-
-
-void Cpu::setTestCpuState(string reg, uint16_t value)
-{
-    if(reg.compare("A") == 0)
-    {
-        A = value;
-    }
-    else if(reg.compare("X") == 0)
-    {
-        X = value;
-    }
-    else if(reg.compare("Y") == 0)
-    {
-        Y = value;
-    }
-    else if(reg.compare("PC") == 0)
-    {
-        PC = value;
-    }
-    else if(reg.compare("S") == 0)
-    {
-        S = value;
-    }
-    else if(reg.compare("P") == 0)
-    {
-        P = value;
-    }
-    else
-    {
-        std::cout << "Invalid state set in CPU!\n";
-    }
+    loadCartridge(cartridgePath);
 }
 
 void Cpu::runCycle()
@@ -134,32 +42,261 @@ void Cpu::autoRunCycles()
     }
 }
 
+void Cpu::printState(string path = "../debug/cpuStatet.txt")
+{
+    std::ofstream file(path, std::ios::app);
+
+    file << "***************************************************************************\n";
+    file << "*OpCode / Addressing Mode: " << ((currentInstruction.opCode.name == nullptr) ? "OpCode not Found" : currentInstruction.opCode.name)
+         << std::hex << " (0x" << static_cast<int>(currentInstruction.opCode.opCodeValue) << ")" << std::dec << "\n";
+    file << "*Number of Bytes: " << static_cast<int>(currentInstruction.opCode.numBytes) << "\n";
+    file << "*Cycles Elapsed: " << static_cast<int>(currentCycle) << "\n";
+    file << "*Cycles Required: " << static_cast<int>(cyclesRequired) << "\n";
+    file << "***************************************************************************\n";
+    file << "----------------\n";
+    file << "STATE\n";
+    file << "----------------\n";
+    file << std::dec;
+    file << "Address: " << static_cast<int>(address) << "\n";
+    file << "Data: " << static_cast<int>(data) << "\n";
+    file << "Low Byte: " << static_cast<int>(lowByte) << "\n";
+    file << "High Byte: " << static_cast<int>(highByte) << "\n";
+    file << "A: " << static_cast<int>(A) << "\n";
+    file << "X: " << static_cast<int>(X) << "\n";
+    file << "Y: " << static_cast<int>(Y) << "\n";
+    file << "PC: " << static_cast<int>(PC) << "\n";
+    file << "S: " << static_cast<int>(S) << "\n";
+    file << "P: " << static_cast<int>(P) << "\n";
+    file << "P(N): " << static_cast<int>(getPFlag(N)) << "\n";
+    file << "P(V): " << static_cast<int>(getPFlag(V)) << "\n";
+    file << "P(1): " << static_cast<int>(getPFlag(TRUE)) << "\n";
+    file << "P(B): " << static_cast<int>(getPFlag(B)) << "\n";
+    file << "P(D): " << static_cast<int>(getPFlag(D)) << "\n";
+    file << "P(I): " << static_cast<int>(getPFlag(I)) << "\n";
+    file << "P(Z): " << static_cast<int>(getPFlag(Z)) << "\n";
+    file << "P(C): " << static_cast<int>(getPFlag(C)) << "\n\n";
+    file << std::dec;
+
+    file.close();
+}            
+
+void Cpu::runTest(string instruction, string opCode)
+{
+    enum Registers
+    {
+        PC,
+        S,
+        A,
+        X,
+        Y,
+        P
+    };
+    struct RamValues
+    {
+        int address;
+        int value;
+    };
+    struct Cycles
+    {
+        int address;
+        int value;
+        string operation;
+    };
+
+    // opcode test file
+    string testPathIn = format("../tests/SST/{}/{}.json", instruction, opCode);
+    std::ifstream testFile(testPathIn);
+    nlohmann::json tests = nlohmann::json::parse(testFile);
+    
+    int testInitialRegisters[6] = {};
+    std::vector<RamValues> testInitialMemory = {};
+    
+    int testFinalRegisters[6] = {};
+    std::vector<RamValues> testFinalMemory = {};
+    
+    std::vector<Cycles> testCycles = {};
+    
+    // number of tests passed and failed
+    bool pass = true;
+    int passTest = 0;
+    int failTest = 0;
+    
+    int testNum = 1;
+    
+    // output test results
+    string testPathOut = format("../tests/SST/{}/{}_testResults.txt", instruction, opCode);
+    std::ofstream testResults(testPathOut);
+
+    testResults << "************************************************************\n";
+    testResults << "Test Results for " << instruction << ", OpCode 0x" << opCode << "\n";   
+    testResults << "************************************************************\n";
+
+    // iterate through all tests for the opcode
+    for (auto itTest = tests.begin(); itTest != tests.end(); ++itTest)
+    {
+        // instantiate new bus and cpu for testing
+        Bus bus(false); 
+        Cpu initialCpu(bus);
+        Cpu finalCpu(bus);
+
+        // get current test
+        nlohmann::json test = *itTest;
+
+        // test initial registers
+        testInitialRegisters[PC] = test["initial"]["pc"].get<int>();
+        testInitialRegisters[S] = test["initial"]["s"].get<int>();
+        testInitialRegisters[A] = test["initial"]["a"].get<int>();
+        testInitialRegisters[X] = test["initial"]["x"].get<int>();
+        testInitialRegisters[Y] = test["initial"]["y"].get<int>();
+        testInitialRegisters[P] = test["initial"]["p"].get<int>();
+        // test final registers
+        testFinalRegisters[PC] = test["final"]["pc"].get<int>();
+        testFinalRegisters[S] = test["final"]["s"].get<int>();
+        testFinalRegisters[A] = test["final"]["a"].get<int>();
+        testFinalRegisters[X] = test["final"]["x"].get<int>();
+        testFinalRegisters[Y] = test["final"]["y"].get<int>();
+        testFinalRegisters[P] = test["final"]["p"].get<int>();
+        // test initial memory
+        for (auto it = test["initial"]["ram"].begin(); it != test["initial"]["ram"].end(); ++it)
+        {
+            testInitialMemory.push_back({(*it)[0], (*it)[1]});
+        }
+        // test final memory
+        for (auto it = test["final"]["ram"].begin(); it != test["final"]["ram"].end(); ++it)
+        {
+            testFinalMemory.push_back({(*it)[0], (*it)[1]});
+        }
+        // test cycles
+        for (auto it = test["cycles"].begin(); it != test["cycles"].end(); ++it)
+        {
+            testCycles.push_back({(*it)[0], (*it)[1], (*it)[2]});
+        }
+
+        // set cpu state with test values
+        // initial registers
+        initialCpu.PC = testInitialRegisters[PC];
+        initialCpu.S = testInitialRegisters[S];
+        initialCpu.A = testInitialRegisters[A];
+        initialCpu.X = testInitialRegisters[X];
+        initialCpu.Y = testInitialRegisters[Y];
+        initialCpu.P = testInitialRegisters[P];
+        finalCpu.PC = testInitialRegisters[PC];
+        finalCpu.S = testInitialRegisters[S];
+        finalCpu.A = testInitialRegisters[A];
+        finalCpu.X = testInitialRegisters[X];
+        finalCpu.Y = testInitialRegisters[Y];
+        finalCpu.P = testInitialRegisters[P];
+        // initial memory
+        for(int i = 0 ; i < testInitialMemory.size() ; i++)
+        {
+            initialCpu.write(testInitialMemory.at(i).address, testInitialMemory.at(i).value);
+            finalCpu.write(testInitialMemory.at(i).address, testInitialMemory.at(i).value);
+        }
+
+        // run only final cpu to get final values
+        finalCpu.autoRunCycles();
+        
+        // check if test passes
+        // registers
+        pass = pass && (testInitialRegisters[PC] == initialCpu.PC);
+        pass = pass && (testInitialRegisters[S] == initialCpu.S);
+        pass = pass && (testInitialRegisters[A] == initialCpu.A);
+        pass = pass && (testInitialRegisters[X] == initialCpu.X);
+        pass = pass && (testInitialRegisters[Y] == initialCpu.Y);
+        pass = pass && (testInitialRegisters[P] == initialCpu.P);
+        pass = pass && (testFinalRegisters[PC] == finalCpu.PC);
+        pass = pass && (testFinalRegisters[S] == finalCpu.S);
+        pass = pass && (testFinalRegisters[A] == finalCpu.A);
+        pass = pass && (testFinalRegisters[X] == finalCpu.X);
+        pass = pass && (testFinalRegisters[Y] == finalCpu.Y);
+        pass = pass && (testFinalRegisters[P] == finalCpu.P);
+        // memory
+        for(int i = 0 ; i < testInitialMemory.size() ; i++)
+        {
+            pass = pass && (testInitialMemory.at(i).value == initialCpu.read(testInitialMemory.at(i).address));
+            pass = pass && (testFinalMemory.at(i).value == finalCpu.read(testFinalMemory.at(i).address));
+        }       
+
+        // increment pass rate
+        pass ? passTest++ : failTest++;    
+
+        if(!pass)
+        {
+            testResults << "FAILED TEST (Test Number: " << testNum << ")" << "\n";
+            testResults << "-----------\n";
+
+            testResults << format("{:<30}{}\n", "Expected Initial Values", "Actual Initial Values");
+            testResults << format("{:<30}{}\n", format("PC: {}", testInitialRegisters[PC]), initialCpu.PC);
+            testResults << format("{:<30}{}\n", format("S: {}", testInitialRegisters[S]), initialCpu.S);
+            testResults << format("{:<30}{}\n", format("A: {}", testInitialRegisters[A]), initialCpu.A);
+            testResults << format("{:<30}{}\n", format("X: {}", testInitialRegisters[X]), initialCpu.X);
+            testResults << format("{:<30}{}\n", format("Y: {}", testInitialRegisters[Y]), initialCpu.Y);
+            testResults << format("{:<30}{}\n", format("P: {}", testInitialRegisters[P]), initialCpu.P);
+            testResults << format("{:<30}{}\n", format("{:<10}{}", "Address", "Value"), format("{:<10}{}", "Address", "Value")); 
+            for(int i = 0 ; i < testInitialMemory.size() ; i++)
+            {
+                int address = testInitialMemory.at(i).address;
+                int initialTestValue = testInitialMemory.at(i).value;
+                int initialActualValue = initialCpu.read(address);
+                testResults << format("{:<30}{}\n", format("{:<10}{}", address, initialTestValue), format("{:<10}{}", address, initialActualValue));
+            }
+            testResults << "\n";
+
+            testResults << format("{:<30}{}\n", "Expected Final Values", "Actual Final Values");
+            testResults << format("{:<30}{}\n", format("PC: {}", testFinalRegisters[PC]), finalCpu.PC);
+            testResults << format("{:<30}{}\n", format("S: {}", testFinalRegisters[S]), finalCpu.S);
+            testResults << format("{:<30}{}\n", format("A: {}", testFinalRegisters[A]), finalCpu.A);
+            testResults << format("{:<30}{}\n", format("X: {}", testFinalRegisters[X]), finalCpu.X);
+            testResults << format("{:<30}{}\n", format("Y: {}", testFinalRegisters[Y]), finalCpu.Y);
+            testResults << format("{:<30}{}\n", format("P: {}", testFinalRegisters[P]), finalCpu.P);
+            testResults << format("{:<30}{}\n", format("{:<10}{}", "Address", "Value"), format("{:<10}{}", "Address", "Value")); 
+            for(int i = 0 ; i < testFinalMemory.size() ; i++)
+            {
+                int address = testFinalMemory.at(i).address;
+                int expectedValue = testFinalMemory.at(i).value;
+                int expectedActualValue = finalCpu.read(address);
+                testResults << format("{:<30}{}\n", format("{:<10}{}", address, expectedValue), format("{:<10}{}", address, expectedActualValue));
+            }
+            testResults << "\n\n";
+        }    
+
+        testInitialMemory.clear();
+        testFinalMemory.clear();
+        pass = true;
+        testNum++;
+    }
+
+    testResults << "Pass: " << passTest << "\n";
+    testResults << "Fail: " << failTest << "\n";
+    testResults.close();
+
+    std::cout << "Finished test instruction: " << instruction << ", opCode: " << opCode << "\n";
+}
+
 // private
 void Cpu::createInstructionSet()
 {
     // ADC
     instructionSet[ADC_IMM] = Instruction{OpCode{"ADC - Immediate", ADC_IMM, 2, 2, IMMEDIATE}, &Cpu::IMM, &Cpu::ADC};
-
     instructionSet[ADC_ZP] = Instruction{OpCode{"ADC - Zero Page", ADC_ZP, 2, 3, ZEROPAGE}, &Cpu::ZP, &Cpu::ADC};
     instructionSet[ADC_ZPX] = Instruction{OpCode{"ADC - Zero Page, X", ADC_ZPX, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::ADC};
-
     instructionSet[ADC_ABS] = Instruction{OpCode{"ADC - Absolute", ADC_ABS, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::ADC};
     instructionSet[ADC_ABSX] = Instruction{OpCode{"ADC - Absolute, X", ADC_ABSX, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::ADC};
     instructionSet[ADC_ABSY] = Instruction{OpCode{"ADC - Absolute, Y", ADC_ABSY, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::ADC};
-
     instructionSet[ADC_IIX] = Instruction{OpCode{"ADC - Indexed Indirect, X", ADC_IIX, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::ADC};
     instructionSet[ADC_IIY] = Instruction{OpCode{"ADC - Indirect Indexed, Y", ADC_IIY, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::ADC};
-/* 
-    // AND
-    instructionSet[AND_IMM] = Instruction{2, 2, &Cpu::AND};
-    instructionSet[AND_ZP] = Instruction{2, 3, &Cpu::AND};
-    instructionSet[AND_ZPX] = Instruction{2, 4, &Cpu::AND};
-    instructionSet[AND_ABS] = Instruction{3, 4, &Cpu::AND};
-    instructionSet[AND_ABSX] = Instruction{3, 4, &Cpu::AND};
-    instructionSet[AND_ABSY] = Instruction{3, 4, &Cpu::AND};
-    instructionSet[AND_IIX] = Instruction{2, 6, &Cpu::AND};
-    instructionSet[AND_IIY] = Instruction{2, 5, &Cpu::AND};
 
+    // AND
+    instructionSet[AND_IMM] = Instruction{OpCode{"AND - Immediate", AND_IMM, 2, 2, IMMEDIATE}, &Cpu::IMM, &Cpu::AND};
+    instructionSet[AND_ZP] = Instruction{OpCode{"AND - Zero Page", AND_ZP, 2, 3, ZEROPAGE}, &Cpu::ZP, &Cpu::AND};
+    instructionSet[AND_ZPX] = Instruction{OpCode{"AND - Zero Page, X", AND_ZP, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::AND};
+    instructionSet[AND_ABS] = Instruction{OpCode{"AND - Absolute", AND_ZP, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::AND};
+    instructionSet[AND_ABSX] = Instruction{OpCode{"AND - Absolute, X", AND_ZP, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::AND};
+    instructionSet[AND_ABSY] = Instruction{OpCode{"AND - Absolute, Y", AND_ZP, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::AND};
+    instructionSet[AND_IIX] = Instruction{OpCode{"AND - Indexed Indirect, X", AND_ZP, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::AND};
+    instructionSet[AND_IIY] = Instruction{OpCode{"AND - Indirect Indexed, Y", AND_ZP, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::AND};
+    
+/* 
     // ASL
     instructionSet[ASL_ACC] = Instruction{1, 2, &Cpu::ASL};
     instructionSet[ASL_ZP] = Instruction{2, 5, &Cpu::ASL};
@@ -405,16 +542,6 @@ void Cpu::createInstructionSet()
     instructionSet[TYA_IMPL] = Instruction{1, 2, &Cpu::TYA}; */
 }
 
-uint8_t Cpu::read(uint16_t address)
-{
-    return bus.cpuRead(address);
-}
-
-void Cpu::write(uint16_t address, uint8_t value)
-{
-    bus.cpuWrite(address, value);
-}
-
 void Cpu::fetchOpCode()
 {
     uint8_t opCode = bus.cpuRead(PC++);
@@ -444,18 +571,31 @@ void Cpu::setWriteMode(bool isOn)
     readMode = !isOn;
 }
 
-void Cpu::loadCartridge(string fileName)
+uint8_t Cpu::read(uint16_t address)
 {
-    std::ifstream file(fileName, std::ios::binary);
-    char byte;
-    int start = 0x0;
-    int end = Bus::MEMORY_SIZE;
-    while(file.read(&byte, 1) && start < end)
+    return bus.cpuRead(address);
+}
+
+void Cpu::write(uint16_t address, uint8_t value)
+{
+    bus.cpuWrite(address, value);
+}
+
+void Cpu::loadCartridge(string cartridgePath)
+{
+    if(!cartridgePath.empty())
     {
-        bus.cpuWrite(start, byte);
-        start++;
+        std::ifstream file(cartridgePath, std::ios::binary);
+        char byte;
+        int start = 0x0;
+        int end = Bus::MEMORY_SIZE;
+        while(file.read(&byte, 1) && start < end)
+        {
+            bus.cpuWrite(start, byte);
+            start++;
+        }
+        file.close();
     }
-    file.close();
 }
 
 void Cpu::powerUpStateInitializer()
@@ -469,8 +609,69 @@ void Cpu::powerUpStateInitializer()
     setPFlag(Z, 0);
     setPFlag(I, 1);
     setPFlag(D, 0);
+    setPFlag(B, 0);
+    setPFlag(TRUE, 1);
     setPFlag(V, 0);
     setPFlag(N, 0);
+}
+
+void Cpu::setA(uint8_t value)
+{
+    if(value >= 0x0000 && value < 0x0100)
+    {
+        A = value;
+    }
+    A = -1;
+    std::cout << "Invalid A Set!\n";
+}
+
+void Cpu::setX(uint8_t value)
+{
+    if(value >= 0x0000 && value < 0x0100)
+    {
+        X = value;
+    }
+    X = -1;
+    std::cout << "Invalid X Set!\n";
+}
+
+void Cpu::setY(uint8_t value)
+{
+    if(value >= 0x0000 && value < 0x0100)
+    {
+        Y = value;
+    }
+    Y = -1;
+    std::cout << "Invalid Y Set!\n";
+}
+void Cpu::setPC(uint16_t address)
+{
+    if(address >= 0x0000 && address < Bus::MEMORY_SIZE)
+    {
+        PC = address;
+    }
+    PC = -1;
+    std::cout << "Invalid PC Set!\n";
+}
+
+void Cpu::setS(uint8_t address)
+{
+    if(address >= 0x0000 && address < 0x0100)
+    {
+        S = address;
+    }
+    S = -1;
+    std::cout << "Invalid S Set!\n";
+}
+
+void Cpu::setP(uint8_t value)
+{
+    if(value >= 0x0000 && value < 0x0100)
+    {
+        P = value;
+    }
+    P = -1;
+    std::cout << "Invalid P Set!\n";
 }
 
 void Cpu::setPFlag(PFlags flag, bool val)
@@ -483,6 +684,9 @@ bool Cpu::getPFlag(PFlags flag)
     return (P >> (7-flag)) & 0x1; 
 }
 
+/*********************************************************
+* ADDRESSING MODES
+*********************************************************/
 void Cpu::IMP()
 {
     switch(currentCycle)
@@ -842,6 +1046,9 @@ void Cpu::IIY()
     }
 }
 
+/*********************************************************
+* INSTRUCTIONS
+*********************************************************/
 void Cpu::ADC()
 {
     int result = A + data + getPFlag(C);
@@ -851,10 +1058,15 @@ void Cpu::ADC()
     setPFlag(N, ((result >> 7) & 0x1));
     A = result & 0xFF;
 }
+
 void Cpu::AND()
 {
-
+    int result = A & data;
+    setPFlag(Z, result == 0);
+    setPFlag(N, result >> 7);
+    A = result;
 }
+
 void Cpu::ASL()
 {
 
@@ -1071,41 +1283,3 @@ void Cpu::TYA()
 {
 
 }
-
-void Cpu::printState()
-{
-    std::ofstream file("../debug/cpuState.txt", std::ios::app);
-
-    file << "***************************************************************************\n";
-    file << "*OpCode / Addressing Mode: " << ((currentInstruction.opCode.name == nullptr) ? "OpCode not Found" : currentInstruction.opCode.name)
-         << std::hex << " (0x" << static_cast<int>(currentInstruction.opCode.opCodeValue) << ")" << std::dec << "\n";
-    file << "*Number of Bytes: " << static_cast<int>(currentInstruction.opCode.numBytes) << "\n";
-    file << "*Cycles Elapsed: " << static_cast<int>(currentCycle) << "\n";
-    file << "*Cycles Required: " << static_cast<int>(cyclesRequired) << "\n";
-    file << "***************************************************************************\n";
-    file << "----------------\n";
-    file << "|STATE\n";
-    file << "----------------\n";
-    file << std::dec;
-    file << "|Address: " << static_cast<int>(address) << "\n";
-    file << "|Data: " << static_cast<int>(data) << "\n";
-    file << "|Low Byte: " << static_cast<int>(lowByte) << "\n";
-    file << "|High Byte: " << static_cast<int>(highByte) << "\n";
-    file << "|A: " << static_cast<int>(A) << "\n";
-    file << "|X: " << static_cast<int>(X) << "\n";
-    file << "|Y: " << static_cast<int>(Y) << "\n";
-    file << "|PC: " << static_cast<int>(PC) << "\n";
-    file << "|S: " << static_cast<int>(S) << "\n";
-    file << "|P: " << static_cast<int>(P) << "\n";
-    file << "|P(N): " << static_cast<int>(getPFlag(N)) << "\n";
-    file << "|P(V): " << static_cast<int>(getPFlag(V)) << "\n";
-    file << "|P(1): " << static_cast<int>(getPFlag(TRUE)) << "\n";
-    file << "|P(B): " << static_cast<int>(getPFlag(B)) << "\n";
-    file << "|P(D): " << static_cast<int>(getPFlag(D)) << "\n";
-    file << "|P(I): " << static_cast<int>(getPFlag(I)) << "\n";
-    file << "|P(Z): " << static_cast<int>(getPFlag(Z)) << "\n";
-    file << "|P(C): " << static_cast<int>(getPFlag(C)) << "\n\n";
-    file << std::dec;
-
-    file.close();
-}            

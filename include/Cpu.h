@@ -1,8 +1,8 @@
 #ifndef CPU_H_
 #define CPU_H_
 
-#include <filesystem>
 #include "Bus.h"
+#include "json.hpp"
 
 // forward declarations for structs
 class Cpu;
@@ -273,27 +273,24 @@ class Cpu
     public:
         // constructors
         Cpu(Bus& bus);
-        Cpu(Bus& bus, string fileName);
-
-        // address/data bus
-        Bus& bus;
-
-        // set cpu state
-        void setTestCpuState(string reg, uint16_t value);
-        uint8_t readTestMem(uint16_t address);
-        void writeTestMem(uint16_t address, uint8_t value);
-        uint16_t getRegisterValue(string reg);
-
+        Cpu(Bus& bus, string cartridgePath);
+        
         // runs 1 cycle
         void runCycle();
-
-        // runs all cycles at once
+        
+        // runs all cycles for an instruction at once
         void autoRunCycles();
-
+        
         // write cpu state to file
-        void printState();
+        void printState(string path);
 
+        // runs single-step-tests (SST)
+        void runTest(string instruction, string opCode);
+        
     private:
+        // address & data bus
+        Bus& bus;
+
         // instructions and corresponding properties
         Instruction instructionSet[256];
         Instruction currentInstruction;
@@ -301,20 +298,20 @@ class Cpu
         uint8_t currentCycle;
         void createInstructionSet();
 
-        //  
+        // address and data gathering, cpu read/write mode
         uint8_t lowByte;
         uint8_t highByte;
         uint16_t address;
         uint8_t data;
         bool readMode;
         bool writeMode;
-        uint8_t read(uint16_t address);
-        void write(uint16_t address, uint8_t value);
         void fetchOpCode();
         void fetchLowByte();
         void fetchHighByte();
         void setReadMode(bool isOn);
         void setWriteMode(bool isOn);
+        uint8_t read(uint16_t address);
+        void write(uint16_t address, uint8_t value);
         
         // loads a cartridge into memory
         void loadCartridge(string fileName);
@@ -329,6 +326,12 @@ class Cpu
         uint16_t PC;    // program counter
         uint8_t S;      // stack pointer
         uint8_t P;      // status register (NV1B DIZC)
+        void setPC(uint16_t address);
+        void setS(uint8_t address);
+        void setA(uint8_t value);
+        void setX(uint8_t value);
+        void setY(uint8_t value);
+        void setP(uint8_t value);
         void setPFlag(PFlags flag, bool val);
         bool getPFlag(PFlags flag);
 
