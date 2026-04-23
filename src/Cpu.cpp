@@ -29,10 +29,6 @@ void Cpu::runCycle()
     {
         (this->*currentInstruction.cycles)();
     }
-    if(currentCycle == cyclesRequired)
-    {
-        (this->*currentInstruction.execute)();
-    }
 }
 
 void Cpu::autoRunCycles(std::vector<BusActivity>* trackCycles)
@@ -44,7 +40,7 @@ void Cpu::autoRunCycles(std::vector<BusActivity>* trackCycles)
     }
 }
 
-void Cpu::printState(string path = "../debug/cpuStatet.txt")
+/* void Cpu::printState(string path = "../debug/cpuStatet.txt")
 {
     std::ofstream file(path, std::ios::app);
 
@@ -80,7 +76,7 @@ void Cpu::printState(string path = "../debug/cpuStatet.txt")
     file << std::dec;
 
     file.close();
-}            
+}             */
 
 void Cpu::runTest(string instruction, string opCode)
 {
@@ -221,6 +217,7 @@ void Cpu::runTest(string instruction, string opCode)
             pass = pass && (testFinalMemory.at(i).value == finalCpu.read(testFinalMemory.at(i).address));
         }       
         // cycles
+        pass = pass && (testCycles.size() == trackCycles.size());
         for(int i = 0 ; i < testCycles.size() ; i++)
         {
             pass = pass && (testCycles.at(i).address == trackCycles.at(i).address);
@@ -302,33 +299,34 @@ void Cpu::runTest(string instruction, string opCode)
 void Cpu::createInstructionSet()
 {
     // ADC
-    instructionSet[ADC_IMM] = Instruction{OpCode{"ADC - Immediate", ADC_IMM, 2, 2, IMMEDIATE}, &Cpu::IMM, &Cpu::ADC};
-    instructionSet[ADC_ZP] = Instruction{OpCode{"ADC - Zero Page", ADC_ZP, 2, 3, ZEROPAGE}, &Cpu::ZP, &Cpu::ADC};
-    instructionSet[ADC_ZPX] = Instruction{OpCode{"ADC - Zero Page, X", ADC_ZPX, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::ADC};
-    instructionSet[ADC_ABS] = Instruction{OpCode{"ADC - Absolute", ADC_ABS, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::ADC};
-    instructionSet[ADC_ABSX] = Instruction{OpCode{"ADC - Absolute, X", ADC_ABSX, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::ADC};
-    instructionSet[ADC_ABSY] = Instruction{OpCode{"ADC - Absolute, Y", ADC_ABSY, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::ADC};
-    instructionSet[ADC_IIX] = Instruction{OpCode{"ADC - Indexed Indirect, X", ADC_IIX, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::ADC};
-    instructionSet[ADC_IIY] = Instruction{OpCode{"ADC - Indirect Indexed, Y", ADC_IIY, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::ADC};
+    instructionSet[ADC_IMM] = Instruction{R, 2, IMMEDIATE, &Cpu::IMM, &Cpu::ADC};
+    instructionSet[ADC_ZP] = Instruction{R, 3, ZEROPAGE, &Cpu::ZP, &Cpu::ADC};
+    instructionSet[ADC_ZPX] = Instruction{R, 4, ZEROPAGE_X, &Cpu::ZPX, &Cpu::ADC};
+    instructionSet[ADC_ABS] = Instruction{R, 4, ABSOLUTE, &Cpu::ABS, &Cpu::ADC};
+    instructionSet[ADC_ABSX] = Instruction{R, 4, ABSOLUTE_X, &Cpu::ABX, &Cpu::ADC};
+    instructionSet[ADC_ABSY] = Instruction{R, 4, ABSOLUTE_Y, &Cpu::ABY, &Cpu::ADC};
+    instructionSet[ADC_IIX] = Instruction{R, 6, INDEXED_INDIRECT_X, &Cpu::IIX, &Cpu::ADC};
+    instructionSet[ADC_IIY] = Instruction{R, 5, INDIRECT_INDEXED_Y, &Cpu::IIY, &Cpu::ADC};
 
     // AND
-    instructionSet[AND_IMM] = Instruction{OpCode{"AND - Immediate", AND_IMM, 2, 2, IMMEDIATE}, &Cpu::IMM, &Cpu::AND};
-    instructionSet[AND_ZP] = Instruction{OpCode{"AND - Zero Page", AND_ZP, 2, 3, ZEROPAGE}, &Cpu::ZP, &Cpu::AND};
-    instructionSet[AND_ZPX] = Instruction{OpCode{"AND - Zero Page, X", AND_ZPX, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::AND};
-    instructionSet[AND_ABS] = Instruction{OpCode{"AND - Absolute", AND_ABS, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::AND};
-    instructionSet[AND_ABSX] = Instruction{OpCode{"AND - Absolute, X", AND_ABSX, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::AND};
-    instructionSet[AND_ABSY] = Instruction{OpCode{"AND - Absolute, Y", AND_ABSY, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::AND};
-    instructionSet[AND_IIX] = Instruction{OpCode{"AND - Indexed Indirect, X", AND_IIX, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::AND};
-    instructionSet[AND_IIY] = Instruction{OpCode{"AND - Indirect Indexed, Y", AND_IIY, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::AND};
+    instructionSet[AND_IMM] = Instruction{R, 2, IMMEDIATE, &Cpu::IMM, &Cpu::AND};
+    instructionSet[AND_ZP] = Instruction{R, 3, ZEROPAGE, &Cpu::ZP, &Cpu::AND};
+    instructionSet[AND_ZPX] = Instruction{R, 4, ZEROPAGE_X, &Cpu::ZPX, &Cpu::AND};
+    instructionSet[AND_ABS] = Instruction{R, 4, ABSOLUTE, &Cpu::ABS, &Cpu::AND};
+    instructionSet[AND_ABSX] = Instruction{R, 4, ABSOLUTE_X, &Cpu::ABX, &Cpu::AND};
+    instructionSet[AND_ABSY] = Instruction{R, 4, ABSOLUTE_Y, &Cpu::ABY, &Cpu::AND};
+    instructionSet[AND_IIX] = Instruction{R, 6, INDEXED_INDIRECT_X, &Cpu::IIX, &Cpu::AND};
+    instructionSet[AND_IIY] = Instruction{R, 5, INDIRECT_INDEXED_Y, &Cpu::IIY, &Cpu::AND};
     
-/* 
+ 
     // ASL
-    instructionSet[ASL_ACC] = Instruction{1, 2, &Cpu::ASL};
-    instructionSet[ASL_ZP] = Instruction{2, 5, &Cpu::ASL};
-    instructionSet[ASL_ZPX] = Instruction{2, 6, &Cpu::ASL};
-    instructionSet[ASL_ABS] = Instruction{3, 6, &Cpu::ASL};
-    instructionSet[ASL_ABSX] = Instruction{3, 7, &Cpu::ASL}; 
+    instructionSet[ASL_ACC] = Instruction{R, 2, ACCUMULATOR, &Cpu::ACC, &Cpu::ASL};
+    instructionSet[ASL_ZP] = Instruction{RMW, 5, ZEROPAGE, &Cpu::ZP, &Cpu::ASL};
+    instructionSet[ASL_ZPX] = Instruction{RMW, 6, ZEROPAGE_X, &Cpu::ZPX, &Cpu::ASL};
+    instructionSet[ASL_ABS] = Instruction{RMW, 6, ABSOLUTE, &Cpu::ABS, &Cpu::ASL};
+    instructionSet[ASL_ABSX] = Instruction{RMW, 7, ABSOLUTE_X, &Cpu::ABX, &Cpu::ASL}; 
 
+/*
     // BCC
     instructionSet[BCC_REL] = Instruction{2, 2, &Cpu::BCC};
     
@@ -571,7 +569,7 @@ void Cpu::fetchOpCode()
 {
     uint8_t opCode = read(PC, true);
     currentInstruction = instructionSet[opCode];
-    cyclesRequired = currentInstruction.opCode.minCycles;
+    cyclesRequired = currentInstruction.minCycles;
 }
 
 void Cpu::fetchLowByte()
@@ -641,65 +639,6 @@ void Cpu::powerUpStateInitializer()
     setPFlag(N, 0);
 }
 
-void Cpu::setA(uint8_t value)
-{
-    if(value >= 0x0000 && value < 0x0100)
-    {
-        A = value;
-    }
-    A = -1;
-    std::cout << "Invalid A Set!\n";
-}
-
-void Cpu::setX(uint8_t value)
-{
-    if(value >= 0x0000 && value < 0x0100)
-    {
-        X = value;
-    }
-    X = -1;
-    std::cout << "Invalid X Set!\n";
-}
-
-void Cpu::setY(uint8_t value)
-{
-    if(value >= 0x0000 && value < 0x0100)
-    {
-        Y = value;
-    }
-    Y = -1;
-    std::cout << "Invalid Y Set!\n";
-}
-void Cpu::setPC(uint16_t address)
-{
-    if(address >= 0x0000 && address < Bus::MEMORY_SIZE)
-    {
-        PC = address;
-    }
-    PC = -1;
-    std::cout << "Invalid PC Set!\n";
-}
-
-void Cpu::setS(uint8_t address)
-{
-    if(address >= 0x0000 && address < 0x0100)
-    {
-        S = address;
-    }
-    S = -1;
-    std::cout << "Invalid S Set!\n";
-}
-
-void Cpu::setP(uint8_t value)
-{
-    if(value >= 0x0000 && value < 0x0100)
-    {
-        P = value;
-    }
-    P = -1;
-    std::cout << "Invalid P Set!\n";
-}
-
 void Cpu::setPFlag(PFlags flag, bool val)
 {
     P = (P & ~(1 << (7-flag))) | (val << (7-flag));
@@ -736,6 +675,7 @@ void Cpu::IMM()
         {
             fetchLowByte();
             data = lowByte;
+            (this->*currentInstruction.execute)();
         }
         break;
 
@@ -750,7 +690,10 @@ void Cpu::ACC()
     {
         case 2:
         {
+            data = A;
             read(PC);
+            (this->*currentInstruction.execute)();
+            A = data;
         }
         break;
         
@@ -766,51 +709,158 @@ void Cpu::REL()
 
 void Cpu::ZP()
 {
-    switch(currentCycle)
+    switch(currentInstruction.type)
     {
-        case 2:
+        case R:
         {
-            fetchLowByte();
-            address = lowByte;
-        }
-        break;
+            switch(currentCycle)
+            {
+                case 2:
+                {
+                    fetchLowByte();
+                    address = lowByte;
+                }
+                break;
+                
+                case 3:
+                {
+                    data = read(address);
+                    (this->*currentInstruction.execute)();
+                }
+                break;
         
-        case 3:
-        {
-            data = read(address);
+                default: std::cout << "Invalid ZP_R Instruction Cycle\n";
+                break;
+            }    
         }
         break;
 
-        default: std::cout << "Invalid ZP Instruction Cycle\n";
+        case W:
+        {
+
+        }
         break;
-    }    
+
+        case RMW:
+        {
+            switch(currentCycle)
+            {
+                case 2:
+                {
+                    fetchLowByte();
+                    address = lowByte;
+                }
+                break;
+                
+                case 3:
+                {
+                    data = read(address);
+                }
+                break;
+
+                case 4:
+                {
+                    write(address, data);
+                    (this->*currentInstruction.execute)();
+                }
+                break;
+
+                case 5:
+                {
+                    write(address, data); 
+                }
+                break;
+
+                default: std::cout << "Invalid ZP_RMW Instruction Cycle\n";
+                break;
+            }         
+        }
+        break;
+    }
 }
 
 void Cpu::ZPX()
 {
-    switch(currentCycle)
+    switch(currentInstruction.type)
     {
-        case 2:
+        case R:
         {
-            fetchLowByte();
-            address = lowByte;
+            switch(currentCycle)
+            {
+                case 2:
+                {
+                    fetchLowByte();
+                    address = lowByte;
+                }
+                break;
+        
+                case 3: 
+                {
+                    read(address);
+                    address = (lowByte + X) % 256;
+                }
+                break;
+        
+                case 4:
+                {
+                    data = read(address);
+                    (this->*currentInstruction.execute)();
+                }
+                break;
+        
+                default: std::cout << "Invalid ZPX_R Instruction Cycle\n";
+                break;
+            }
         }
         break;
-
-        case 3: 
+     
+        case W:
         {
-            read(address);
-            address = (lowByte + X) % 256;
+    
         }
         break;
-
-        case 4:
+     
+        case RMW:
         {
-            data = read(address);
-        }
-        break;
+            switch(currentCycle)
+            {
+                case 2:
+                {
+                    fetchLowByte();
+                    address = lowByte;
+                }
+                break;
+        
+                case 3: 
+                {
+                    read(address);
+                    address = (lowByte + X) % 256;
+                }
+                break;
+        
+                case 4:
+                {
+                    data = read(address);
+                }
+                break;
+                
+                case 5:
+                {
+                    write(address, data);
+                    (this->*currentInstruction.execute)();
+                }
+                break;
 
-        default: std::cout << "Invalid ZPX Instruction Cycle\n";
+                case 6:
+                {
+                    write(address, data);
+                }
+                break;
+        
+                default: std::cout << "Invalid ZPX_R Instruction Cycle\n";
+                break;
+            } 
+        }
         break;
     }
 }
@@ -836,6 +886,7 @@ void Cpu::ZPY()
         case 4:
         {
             data = read(address);
+            (this->*currentInstruction.execute)();
         }
         break;
 
@@ -865,6 +916,7 @@ void Cpu::ABS()
         case 4:
         {
             data = read(address);
+            (this->*currentInstruction.execute)();
         }
         break;
     
@@ -902,11 +954,18 @@ void Cpu::ABX()
             {
                 address = ((highByte + 1) << 8) | ((lowByte + X) & 0x00FF);
             }
+            else
+            {
+                (this->*currentInstruction.execute)();
+            }
         }
         break;
 
         case 5:
+        {
             data = read(address);
+            (this->*currentInstruction.execute)();
+        }
         break;
 
         default: "Invalid ABX Instruction Cycle\n";
@@ -943,11 +1002,18 @@ void Cpu::ABY()
             {
                 address = ((highByte + 1) << 8) | ((lowByte + Y) & 0x00FF);
             }
+            else
+            {
+                (this->*currentInstruction.execute)();
+            }
         }
         break;
 
         case 5:
+        {
             data = read(address);
+            (this->*currentInstruction.execute)();
+        }
         break;
 
         default: "Invalid ABY Instruction Cycle\n";
@@ -985,6 +1051,7 @@ void Cpu::IND()
         case 5:
         {
             address = (read(address) << 8) | data;
+            (this->*currentInstruction.execute)();
         }
     }
 }
@@ -1015,12 +1082,17 @@ void Cpu::IIX()
         break;
 
         case 5:
+        {
             highByte = read(address);
             address = (highByte << 8) | lowByte;
+        }
         break;
 
         case 6:
+        {
             data = read(address);
+            (this->*currentInstruction.execute)();
+        }
         break;
 
         default: "Invalid IIX Instruction Cycle\n";
@@ -1058,15 +1130,24 @@ void Cpu::IIY()
         break;
 
         case 5:
+        {
             data = read(address);
             if(lowByte + Y > 0xFF)
             {
                 address = ((highByte + 1) << 8) | ((lowByte + Y) & 0xFF);
             }
+            else
+            {
+                (this->*currentInstruction.execute)();
+            }
+        }
         break;
 
         case 6:
+        {
             data = read(address);
+            (this->*currentInstruction.execute)();
+        }
         break;
         
         default: "Invalid IIY Instruction Cycle\n";
@@ -1096,9 +1177,13 @@ void Cpu::AND()
 }
 
 void Cpu::ASL()
-{
-
+{    
+    setPFlag(C, ((data >> 7) & 0x1));    
+    data = data << 1;
+    setPFlag(Z, data == 0);
+    setPFlag(N, ((data >> 7) & 0x1));
 }
+
 void Cpu::BCC()
 {
 
