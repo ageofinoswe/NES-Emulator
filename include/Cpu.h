@@ -27,6 +27,13 @@ enum AddressingModes
     INDIRECT_INDEXED_Y
 };
 
+enum InstructionType
+{
+    R,      // read
+    W,      // write
+    RMW,    // read-modify-write
+};
+
 enum OpCodes
 {
     // ADC
@@ -252,18 +259,11 @@ enum PFlags // status register, P
 };
 
 // STRUCTS
-struct OpCode
-{
-    const char* name = nullptr;
-    uint8_t opCodeValue = 0;
-    uint8_t numBytes = 0;
-    uint8_t minCycles = 0;
-    AddressingModes mode = NONE;
-};
-
 struct Instruction
 {
-    OpCode opCode;
+    InstructionType type = R;
+    uint8_t minCycles = 0;
+    AddressingModes mode = NONE;
     void (Cpu::*cycles)() = nullptr;
     void (Cpu::*execute)() = nullptr;
 };
@@ -328,12 +328,6 @@ class Cpu
         uint16_t PC;    // program counter
         uint8_t S;      // stack pointer
         uint8_t P;      // status register (NV1B DIZC)
-        void setPC(uint16_t address);
-        void setS(uint8_t address);
-        void setA(uint8_t value);
-        void setX(uint8_t value);
-        void setY(uint8_t value);
-        void setP(uint8_t value);
         void setPFlag(PFlags flag, bool val);
         bool getPFlag(PFlags flag);
 
