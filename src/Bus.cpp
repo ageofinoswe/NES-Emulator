@@ -38,7 +38,7 @@ Bus::Bus(bool memoryMapOn)
     this->memoryMapOn = memoryMapOn;
 }
 
-uint8_t Bus::cpuRead(uint16_t address, BusActivity* activity = nullptr) const
+uint8_t Bus::cpuRead(uint16_t address, BusActivity* activity) const
 {
     if(validateAddressRange(address))
     {   
@@ -46,7 +46,7 @@ uint8_t Bus::cpuRead(uint16_t address, BusActivity* activity = nullptr) const
         {
             activity->address = address;
             activity->data = memory[address];
-            activity->action = "Read";
+            activity->action = "read";
         }
         if(memoryMapOn)
         {
@@ -78,7 +78,7 @@ uint8_t Bus::cpuRead(uint16_t address, BusActivity* activity = nullptr) const
     }
 }
 
-void Bus::cpuWrite(uint16_t address, uint8_t value, BusActivity* activity = nullptr)
+void Bus::cpuWrite(uint16_t address, uint8_t value, BusActivity* activity)
 {
     if(validateAddressRange(address))
     {
@@ -86,7 +86,7 @@ void Bus::cpuWrite(uint16_t address, uint8_t value, BusActivity* activity = null
         {
             activity->address = address;
             activity->data = value;
-            activity->action = "Write";
+            activity->action = "write";
         }
         if(memoryMapOn)
         {
