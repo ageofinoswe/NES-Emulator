@@ -1,6 +1,8 @@
 #ifndef BUS_H_
 #define BUS_H_
 
+#include "SharedTypes.h"
+
 #include <cstdint>
 #include <fstream>
 #include <format>
@@ -34,11 +36,11 @@ class Bus
         static constexpr int MEMORY_SIZE = 0x10000;
 
         // cpu read/write data using 16-bit address bus
-        uint8_t cpuRead(uint16_t address);
-        void cpuWrite(uint16_t address, uint8_t value);
+        uint8_t cpuRead(uint16_t address, BusActivity* activity = nullptr) const;
+        void cpuWrite(uint16_t address, uint8_t value, BusActivity* activity = nullptr);
         
         // dumps the contents of the memory map to a .txt file
-        void memoryMapDump(string path);
+        void memoryMapDump(string path) const;
         
     private:
         // memory allocation stored in an array

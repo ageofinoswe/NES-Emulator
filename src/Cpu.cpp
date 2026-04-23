@@ -1,4 +1,5 @@
 #include "Cpu.h"
+#include "SharedTypes.h"
 
 // public
 Cpu::Cpu(Bus& bus)
@@ -7,8 +8,8 @@ Cpu::Cpu(Bus& bus)
 }
 
 Cpu::Cpu(Bus& bus, string cartridgePath)
-    :   bus{bus}, cyclesRequired{0}, currentCycle{0},
-        lowByte{0}, highByte{0}, address{0}, data{0},
+    :   bus{bus}, cyclesRequired{1}, currentCycle{0},
+        lowByte{0}, highByte{0}, address{0}, data{0}, activity{},
         readMode{true}, writeMode{!readMode},
         A{0}, X{0}, Y{0}, PC{0xFFFC}, S{0xFD}, P{36}
 {
@@ -34,11 +35,12 @@ void Cpu::runCycle()
     }
 }
 
-void Cpu::autoRunCycles()
+void Cpu::autoRunCycles(std::vector<BusActivity>* trackCycles)
 {
-    while(currentCycle <= cyclesRequired)
+    while(currentCycle < cyclesRequired)
     {
         runCycle();
+        trackCycles->push_back(BusActivity{activity.address, activity.data, activity.action});
     }
 }
 
@@ -135,9 +137,10 @@ void Cpu::runTest(string instruction, string opCode)
     for (auto itTest = tests.begin(); itTest != tests.end(); ++itTest)
     {
         // instantiate new bus and cpu for testing
-        Bus bus(false); 
-        Cpu initialCpu(bus);
-        Cpu finalCpu(bus);
+        Bus initialBus(false);
+        Bus finalBus(false); 
+        Cpu initialCpu(initialBus);
+        Cpu finalCpu(finalBus);
 
         // get current test
         nlohmann::json test = *itTest;
@@ -193,9 +196,10 @@ void Cpu::runTest(string instruction, string opCode)
             finalCpu.write(testInitialMemory.at(i).address, testInitialMemory.at(i).value);
         }
 
-        // run only final cpu to get final values
-        finalCpu.autoRunCycles();
-        
+        // run only final cpu to get final values and keep track of cycles
+        std::vector<BusActivity> trackCycles = {};
+        finalCpu.autoRunCycles(&trackCycles);
+
         // check if test passes
         // registers
         pass = pass && (testInitialRegisters[PC] == initialCpu.PC);
@@ -216,6 +220,13 @@ void Cpu::runTest(string instruction, string opCode)
             pass = pass && (testInitialMemory.at(i).value == initialCpu.read(testInitialMemory.at(i).address));
             pass = pass && (testFinalMemory.at(i).value == finalCpu.read(testFinalMemory.at(i).address));
         }       
+        // cycles
+        for(int i = 0 ; i < testCycles.size() ; i++)
+        {
+            pass = pass && (testCycles.at(i).address == trackCycles.at(i).address);
+            pass = pass && (testCycles.at(i).value == trackCycles.at(i).data);
+            pass = pass && (testCycles.at(i).operation.compare(trackCycles.at(i).action) == 0);
+        }
 
         // increment pass rate
         pass ? passTest++ : failTest++;    
@@ -257,11 +268,25 @@ void Cpu::runTest(string instruction, string opCode)
                 int expectedActualValue = finalCpu.read(address);
                 testResults << format("{:<30}{}\n", format("{:<10}{}", address, expectedValue), format("{:<10}{}", address, expectedActualValue));
             }
+            testResults << "\n";
+
+            testResults << format("{:<30}{}\n", "Expected Cycles", "Actual Cycles");
+            testResults << format("{:<30}{}\n", format("{:<10}{:<10}{}", "Address", "Value", "Action"), format("{:<10}{:<10}{}", "Address", "Value", "Action")); 
+            for(int i = 0 ; i < testCycles.size() ; i++)
+            {
+                testResults <<
+                    format("{:<30}{}\n",
+                    format("{:<10}{:<10}{}", testCycles.at(i).address, testCycles.at(i).value, testCycles.at(i).operation),
+                    format("{:<10}{:<10}{}", trackCycles.at(i).address, trackCycles.at(i).data, trackCycles.at(i).action));
+            }
+
             testResults << "\n\n";
         }    
 
         testInitialMemory.clear();
         testFinalMemory.clear();
+        testCycles.clear();
+        trackCycles.clear();
         pass = true;
         testNum++;
     }
@@ -289,12 +314,12 @@ void Cpu::createInstructionSet()
     // AND
     instructionSet[AND_IMM] = Instruction{OpCode{"AND - Immediate", AND_IMM, 2, 2, IMMEDIATE}, &Cpu::IMM, &Cpu::AND};
     instructionSet[AND_ZP] = Instruction{OpCode{"AND - Zero Page", AND_ZP, 2, 3, ZEROPAGE}, &Cpu::ZP, &Cpu::AND};
-    instructionSet[AND_ZPX] = Instruction{OpCode{"AND - Zero Page, X", AND_ZP, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::AND};
-    instructionSet[AND_ABS] = Instruction{OpCode{"AND - Absolute", AND_ZP, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::AND};
-    instructionSet[AND_ABSX] = Instruction{OpCode{"AND - Absolute, X", AND_ZP, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::AND};
-    instructionSet[AND_ABSY] = Instruction{OpCode{"AND - Absolute, Y", AND_ZP, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::AND};
-    instructionSet[AND_IIX] = Instruction{OpCode{"AND - Indexed Indirect, X", AND_ZP, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::AND};
-    instructionSet[AND_IIY] = Instruction{OpCode{"AND - Indirect Indexed, Y", AND_ZP, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::AND};
+    instructionSet[AND_ZPX] = Instruction{OpCode{"AND - Zero Page, X", AND_ZPX, 2, 4, ZEROPAGE_X}, &Cpu::ZPX, &Cpu::AND};
+    instructionSet[AND_ABS] = Instruction{OpCode{"AND - Absolute", AND_ABS, 3, 4, ABSOLUTE}, &Cpu::ABS, &Cpu::AND};
+    instructionSet[AND_ABSX] = Instruction{OpCode{"AND - Absolute, X", AND_ABSX, 3, 4, ABSOLUTE_X}, &Cpu::ABX, &Cpu::AND};
+    instructionSet[AND_ABSY] = Instruction{OpCode{"AND - Absolute, Y", AND_ABSY, 3, 4, ABSOLUTE_Y}, &Cpu::ABY, &Cpu::AND};
+    instructionSet[AND_IIX] = Instruction{OpCode{"AND - Indexed Indirect, X", AND_IIX, 2, 6, INDEXED_INDIRECT_X}, &Cpu::IIX, &Cpu::AND};
+    instructionSet[AND_IIY] = Instruction{OpCode{"AND - Indirect Indexed, Y", AND_IIY, 2, 5, INDIRECT_INDEXED_Y}, &Cpu::IIY, &Cpu::AND};
     
 /* 
     // ASL
@@ -544,19 +569,19 @@ void Cpu::createInstructionSet()
 
 void Cpu::fetchOpCode()
 {
-    uint8_t opCode = bus.cpuRead(PC++);
+    uint8_t opCode = read(PC, true);
     currentInstruction = instructionSet[opCode];
     cyclesRequired = currentInstruction.opCode.minCycles;
 }
 
 void Cpu::fetchLowByte()
 {
-    lowByte = bus.cpuRead(PC++);
+    lowByte = read(PC, true);
 }
 
 void Cpu::fetchHighByte()
 {
-    highByte = bus.cpuRead(PC++);
+    highByte = read(PC, true);
 }
 
 void Cpu::setReadMode(bool isOn)
@@ -571,14 +596,15 @@ void Cpu::setWriteMode(bool isOn)
     readMode = !isOn;
 }
 
-uint8_t Cpu::read(uint16_t address)
+uint8_t Cpu::read(uint16_t address, bool incPC)
 {
-    return bus.cpuRead(address);
+    incPC ? PC++ : PC;
+    return bus.cpuRead(address, &activity);
 }
 
 void Cpu::write(uint16_t address, uint8_t value)
 {
-    bus.cpuWrite(address, value);
+    bus.cpuWrite(address, value, &activity);
 }
 
 void Cpu::loadCartridge(string cartridgePath)
@@ -747,6 +773,8 @@ void Cpu::ZP()
             fetchLowByte();
             address = lowByte;
         }
+        break;
+        
         case 3:
         {
             data = read(address);
