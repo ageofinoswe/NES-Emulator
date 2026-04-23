@@ -2,6 +2,7 @@
 #define CPU_H_
 
 #include "Bus.h"
+#include "SharedTypes.h"
 #include "json.hpp"
 
 // forward declarations for structs
@@ -279,7 +280,7 @@ class Cpu
         void runCycle();
         
         // runs all cycles for an instruction at once
-        void autoRunCycles();
+        void autoRunCycles(std::vector<BusActivity>* trackCycles);
         
         // write cpu state to file
         void printState(string path);
@@ -303,6 +304,7 @@ class Cpu
         uint8_t highByte;
         uint16_t address;
         uint8_t data;
+        BusActivity activity;
         bool readMode;
         bool writeMode;
         void fetchOpCode();
@@ -310,7 +312,7 @@ class Cpu
         void fetchHighByte();
         void setReadMode(bool isOn);
         void setWriteMode(bool isOn);
-        uint8_t read(uint16_t address);
+        uint8_t read(uint16_t address, bool incPC = false);
         void write(uint16_t address, uint8_t value);
         
         // loads a cartridge into memory
