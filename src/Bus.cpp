@@ -3,7 +3,7 @@
 // namespaces
 namespace
 {
-    void writeHeaderToFile(std::ofstream&  file, string header, string range)
+    void writeHeaderToFile(std::ofstream& file, string header, string range)
     {
         file << "************************************************\n";
         file << header << std::endl;
@@ -13,7 +13,7 @@ namespace
         file << format("{:<20}{}\n", "-------", "-------");
     }
     
-    void writeMemoryToFile(std::ofstream& file, Bus& bus, int start, int end)
+    void writeMemoryToFile(std::ofstream& file, const Bus& bus, int start, int end)
     {
         for(int i = start ; i <= end ; i++)
         {
@@ -38,10 +38,16 @@ Bus::Bus(bool memoryMapOn)
     this->memoryMapOn = memoryMapOn;
 }
 
-uint8_t Bus::cpuRead(uint16_t address)
+uint8_t Bus::cpuRead(uint16_t address, BusActivity* activity = nullptr) const
 {
     if(validateAddressRange(address))
     {   
+        if(activity)
+        {
+            activity->address = address;
+            activity->data = memory[address];
+            activity->action = "Read";
+        }
         if(memoryMapOn)
         {
             // 2 KB internal ram & mirrors
@@ -72,10 +78,16 @@ uint8_t Bus::cpuRead(uint16_t address)
     }
 }
 
-void Bus::cpuWrite(uint16_t address, uint8_t value)
+void Bus::cpuWrite(uint16_t address, uint8_t value, BusActivity* activity = nullptr)
 {
     if(validateAddressRange(address))
     {
+        if(activity)
+        {
+            activity->address = address;
+            activity->data = value;
+            activity->action = "Write";
+        }
         if(memoryMapOn)
         {
             // 2 KB internal ram & mirrors
@@ -106,7 +118,7 @@ void Bus::cpuWrite(uint16_t address, uint8_t value)
     }
 }
 
-void Bus::memoryMapDump(string path = "../debug/memoryMap.txt")
+void Bus::memoryMapDump(string path = "../debug/memoryMap.txt") const
 {
     std::ofstream file(path);
     
